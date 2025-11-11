@@ -1,4 +1,3 @@
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/2392631d-987b-4a94-9b60-01c87eecf6ba" /># 🌐 ESP32 Modbus PLC Gateway
 
 Este projeto implementa um **gateway inteligente entre um PLC (via Modbus TCP)** e um **servidor remoto HTTP/HTTPS**, utilizando um **ESP32** com suporte a **Ethernet e Wi-Fi**.  
 O dispositivo também atua como **servidor web local (Hotspot)** para configuração e monitoramento, e é capaz de atualizar seu firmware e registradores remotamente.
