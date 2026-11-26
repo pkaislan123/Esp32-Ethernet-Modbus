@@ -36,6 +36,7 @@ O projeto entrega uma solução completa de campo — combinando **hardware com 
 10. [Gabinete Mecânico 3D](#gabinete-mecânico-3d)
 11. [Requisitos de Compilação e Estrutura do Repositório](#requisitos-de-compilação-e-estrutura-do-repositório)
 12. [Licença e Contato](#licença-e-contato)
+13. [Stack Técnica e Tecnologias Utilizadas](#stack-técnica-e-tecnologias-utilizadas)
 
 ---
 
@@ -298,3 +299,13 @@ Distribuído sob a **MIT License** — livre para uso, modificação e distribui
 - **Autor:** Aislan Silva Costa — Engenharia de Hardware, Sistemas Embarcados e IIoT
 - **E-mail:** [comprasaislan@gmail.com](mailto:comprasaislan@gmail.com)
 - **LinkedIn:** [linkedin.com/in/aislan-silva-costa-660814341](https://www.linkedin.com/in/aislan-silva-costa-660814341/)
+
+---
+
+## Stack Técnica e Tecnologias Utilizadas
+
+| Categoria | Itens |
+| :--- | :--- |
+| **Hardware** | `ESP32-S3` `ESP32` `W5500` `LM2596` `Power Jack 5 VDC` `Chave SPST` `SPI` |
+| **Protocolos** | `Modbus TCP` `HTTP/1.1` `HTTPS/TLS` `TCP/IP` `NTP` `JSON` `OTA` `DHCP / IP Estático` |
+| **Tecnologias** | `C++` `Arduino Framework` `FreeRTOS` `Wi-Fi` `Ethernet` `SPIFFS` `EEPROM` `WebServer` `HTML/CSS/JS` `Blender` `Impressão 3D (STL)` |
