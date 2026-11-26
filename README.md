@@ -12,7 +12,7 @@
 
 Gateway de borda **IIoT (Industrial Internet of Things)** baseado em **ESP32-S3** e controlador Ethernet **W5500**, projetado para atuar como ponte segura entre **CLPs industriais (Modbus TCP)** e plataformas em nuvem (**HTTPS/TLS** e gestão remota).
 
-O firmware combina **descoberta e persistência dinâmica de registradores Modbus em JSON (SPIFFS)**, **sincronização temporal NTP**, **atualização remota de firmware OTA**, **portal web local autenticado com varredura Wi-Fi assíncrona em FreeRTOS** e **projeto mecânico 3D** pronto para impressão do gabinete.
+O projeto entrega uma solução completa de campo — combinando **hardware com alimentação segregada**, **coleta dinâmica de registradores Modbus via JSON no SPIFFS**, **sincronização temporal NTP**, **atualização remota de firmware OTA**, **portal web local autenticado com varredura Wi-Fi assíncrona em FreeRTOS** e **gabinete mecânico 3D** pronto para manufatura.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/f6e326da-1be3-48eb-aadd-c893f0e1057c" alt="Visão conceitual do Gateway Industrial ESP32 Modbus TCP" width="800">
@@ -24,21 +24,62 @@ O firmware combina **descoberta e persistência dinâmica de registradores Modbu
 
 ## Sumário
 
-1. [Visão Geral e Arquitetura do Sistema](#visão-geral-e-arquitetura-do-sistema)
-2. [Hardware e Esquema Elétrico](#hardware-e-esquema-elétrico)
-3. [Coleta Dinâmica Modbus TCP e SPIFFS](#coleta-dinâmica-modbus-tcp-e-spiffs)
-4. [Integração em Nuvem HTTPS e Gestão Remota](#integração-em-nuvem-https-e-gestão-remota)
-5. [Portal Web Embarcado e Provisionamento](#portal-web-embarcado-e-provisionamento)
-6. [Atualização OTA e Console de Diagnóstico](#atualização-ota-e-console-de-diagnóstico)
-7. [Gabinete Mecânico 3D](#gabinete-mecânico-3d)
-8. [Requisitos de Compilação e Estrutura do Repositório](#requisitos-de-compilação-e-estrutura-do-repositório)
-9. [Licença e Contato](#licença-e-contato)
+1. [Objetivo](#objetivo)
+2. [Justificativa Técnica](#justificativa-técnica)
+3. [Cenários de Uso](#cenários-de-uso)
+4. [Arquitetura do Sistema](#arquitetura-do-sistema)
+5. [Hardware e Esquema Elétrico](#hardware-e-esquema-elétrico)
+6. [Coleta Dinâmica Modbus TCP e SPIFFS](#coleta-dinâmica-modbus-tcp-e-spiffs)
+7. [Integração em Nuvem HTTPS e Gestão Remota](#integração-em-nuvem-https-e-gestão-remota)
+8. [Portal Web Embarcado e Provisionamento](#portal-web-embarcado-e-provisionamento)
+9. [Atualização OTA e Console de Diagnóstico](#atualização-ota-e-console-de-diagnóstico)
+10. [Gabinete Mecânico 3D](#gabinete-mecânico-3d)
+11. [Requisitos de Compilação e Estrutura do Repositório](#requisitos-de-compilação-e-estrutura-do-repositório)
+12. [Licença e Contato](#licença-e-contato)
 
 ---
 
-## Visão Geral e Arquitetura do Sistema
+## Objetivo
 
-Em ambientes fabris, conectar CLPs diretamente à internet compromete o isolamento da rede de automação (OT). Este gateway desacopla fisicamente as duas interfaces — **Ethernet SPI (W5500)** dedicada à comunicação determinística **Modbus TCP** com o CLP e **Wi-Fi STA** dedicado à telemetria **HTTPS/TLS** e orquestração remota — permitindo reconfigurar tags, IPs e firmware em campo sem intervenção física.
+O objetivo deste projeto é fornecer um **gateway de borda industrial autônomo, compacto e remotamente gerenciável**, capaz de coletar variáveis de processo diretamente de **Controladores Lógicos Programáveis (CLPs)** via **Modbus TCP** e transmiti-las com segurança para plataformas de telemetria e análise em nuvem.
+
+Em termos práticos, a solução foi concebida para:
+
+- **Integrar CLPs existentes à nuvem sem alterar a lógica de máquina:** realizar leitura cíclica e não invasiva de registradores digitais e analógicos (`COIL`, `DISCRETE`, `INPUT_REGISTER` e `HOLDING_REGISTER`) com timestamp padronizado em ISO-8601 via NTP.
+- **Eliminar manutenções presenciais recorrentes:** permitir que a lista de registradores monitorados, o endereçamento IP das redes OT/IT e até o próprio firmware do gateway sejam atualizados remotamente sem retirar o equipamento do painel elétrico.
+- **Simplificar o comissionamento em campo:** oferecer um portal web embarcado protegido por senha para técnicos configurarem credenciais Wi-Fi, IP estático Ethernet e parâmetros do CLP diretamente pelo navegador, sem depender de cabo serial ou IDE.
+
+---
+
+## Justificativa Técnica
+
+Grande parte dos parques industriais opera com máquinas e CLPs confiáveis que, embora suportem **Modbus TCP**, permanecem isolados em redes locais de chão de fábrica (OT). Quando surge a demanda por visibilidade em tempo real, cálculo de OEE ou manutenção preditiva, equipes de engenharia costumam enfrentar três obstáculos recorrentes: **custo elevado** de gateways industriais proprietários, **exposição indevida de segurança** ao conectar CLPs diretamente à rede corporativa e **engessamento operacional** quando cada nova variável de máquina exige recompilar firmware.
+
+As decisões arquiteturais deste projeto atacam diretamente cada um desses gargalos:
+
+- **Segregação Física entre Rede Industrial (OT) e Nuvem (IT):** o barramento Ethernet cabeado (**W5500 via SPI**) comunica-se exclusivamente com a sub-rede do CLP, enquanto a interface **Wi-Fi** do `ESP32-S3` estabelece conexões de saída **HTTPS/TLS** com validação de certificado raiz (`root_ca`). O CLP permanece isolado da internet.
+- **Desacoplamento entre Firmware e Mapa de Registradores (SPIFFS):** em soluções embarcadas convencionais, os endereços Modbus ficam fixos no código. Aqui, cada registrador é descrito em JSON no diretório `/registradores/` e sincronizado dinamicamente com a nuvem — permitindo escalar ou ajustar medições em produção sem recompilação.
+- **Robustez Elétrica e Operacional em Campo:** o módulo Ethernet `W5500` recebe alimentação dedicada de **`3,3 V` via conversor buck `LM2596`** (preservando o regulador onboard do ESP32 sob picos de tráfego TCP), o firmware implementa autorecuperação por contadores de falha de conexão, a varredura Wi-Fi roda de forma assíncrona em **FreeRTOS** (sem travar o ciclo principal) e as atualizações **OTA** gerenciam explicitamente o Watchdog para evitar corrupção na gravação da flash.
+- **Entrega Orientada a Produto:** além do código modular, o repositório inclui o esquema elétrico de montagem e o gabinete mecânico em `.stl`/`.blend`, cobrindo desde a eletrônica até o acondicionamento físico em painel.
+
+---
+
+## Cenários de Uso
+
+A arquitetura flexível de mapa dinâmico e dupla interface de rede permite aplicar o gateway em diferentes contextos industriais e comerciais:
+
+| Cenário de Aplicação | Como o Gateway Atua | Benefício Direto |
+| :--- | :--- | :--- |
+| **Monitoramento de OEE e Chão de Fábrica** | Lê periodicamente contadores de produção, estados de operação/parada (`COIL`/`DISCRETE`) e tempos de ciclo diretamente do CLP, enviando payloads com timestamp NTP para dashboards em nuvem. | Visibilidade em tempo real de disponibilidade, performance e gargalos de linha sem substituir CLPs existentes. |
+| **Retrofit IIoT de Máquinas Legadas** | Acopla-se via cabo Ethernet à porta Modbus TCP do CLP sem alterar o programa ladder nem exigir licenças SCADA locais ou computadores industriais (IPCs) por máquina. | Digitalização rápida e de baixo custo em plantas com parque heterogêneo de equipamentos. |
+| **Supervisão de Utilidades e Processos Contínuos** | Monitora registradores analógicos (`INPUT_REGISTER` e `HOLDING_REGISTER` em `INTEGER` e `REAL`), como temperaturas, pressões, vazões, níveis e grandezas elétricas em chillers, compressores, bombas e caldeiras. | Detecção antecipada de desvios operacionais e histórico estruturado para manutenção preditiva. |
+| **Gestão Remota de Frotas por OEMs e Integradores** | Equipamentos entregues a clientes remotos mantêm heartbeat contínuo, aceitam alteração remota de tags/IPs e recebem melhorias de firmware via OTA (`tipo 70`). | Redução drástica de chamados presenciais e suporte proativo a ativos distribuídos geograficamente. |
+
+---
+
+## Arquitetura do Sistema
+
+O diagrama abaixo resume o fluxo completo entre o CLP no lado industrial (OT), os serviços internos executados no `ESP32-S3` e os endpoints em nuvem no lado corporativo (IT):
 
 ```mermaid
 flowchart TB
@@ -72,6 +113,8 @@ flowchart TB
 
 ### Cadência Operacional (`tarefaGlobal()`)
 
+O loop principal executa um agendador não-bloqueante baseado em `millis()`, coordenando cinco rotinas independentes sem interromper o atendimento ao portal web local:
+
 | Rotina | Intervalo | Função |
 | :--- | :--- | :--- |
 | **Leitura Modbus + Upload Cloud** | Configurável (`/path_plc_time.txt`, padrão `60 s`) | Lê todos os registradores em `/registradores/*.json`, anexa `dt_time` (ISO-8601) e envia via HTTPS POST |
@@ -84,7 +127,7 @@ flowchart TB
 
 ## Hardware e Esquema Elétrico
 
-O hardware foi dividido em três blocos bem definidos — **Energia**, **Ethernet** e **Controle** — com atenção especial ao isolamento da alimentação do controlador Ethernet:
+O projeto elétrico organiza o dispositivo em três blocos isolados — **Energia**, **Ethernet** e **Controle** — priorizando estabilidade de alimentação sob carga contínua de rede e facilidade de montagem em campo:
 
 <p align="center">
   <img src="./Esquema_Eletrico.png" alt="Esquema elétrico do Gateway ESP32-S3 com módulo W5500 e buck LM2596" width="820">
@@ -102,7 +145,7 @@ O hardware foi dividido em três blocos bem definidos — **Energia**, **Etherne
 
 ## Coleta Dinâmica Modbus TCP e SPIFFS
 
-Em vez de fixar endereços Modbus no código-fonte, o gateway armazena cada ponto de coleta como um arquivo JSON individual em `/registradores/<plcPath>.json` no **SPIFFS**. Quando o backend sinaliza alteração no mapa de variáveis, `processarNovosRegistradores()` limpa o diretório e reescreve automaticamente a nova configuração.
+A coleta de dados no CLP é orientada por metadados persistidos no **SPIFFS**. Cada variável monitorada corresponde a um arquivo JSON em `/registradores/<plcPath>.json`. A cada ciclo, o firmware estabelece ou reutiliza a sessão TCP com `plcServer` (`plcPort`), percorre o diretório, realiza a leitura adequada ao tipo do registrador e consolida todas as medições em um único payload JSON acompanhado do carimbo temporal `dt_time` (sincronizado via `pool.ntp.org` / `time.nist.gov`).
 
 ### Tipos Modbus e Conversões Suportadas (`processarUploadRegistradores()`)
 
@@ -138,7 +181,7 @@ Em vez de fixar endereços Modbus no código-fonte, o gateway armazena cada pont
 
 ## Integração em Nuvem HTTPS e Gestão Remota
 
-### Canais de Comunicação
+A comunicação externa é dividida em dois fluxos complementares — um canal criptografado dedicado aos dados de processo e um canal operacional para comandos de administração, disponibilidade e manutenção remota:
 
 1. **Canal Seguro HTTPS/TLS (`WiFiClientSecure` + `root_ca` em `Certificados.h`):**
    - Download da tabela de registradores (`getRegistradores()`) autenticado via headers `x-api-key` e `x-security-id`.
@@ -163,7 +206,7 @@ Em vez de fixar endereços Modbus no código-fonte, o gateway armazena cada pont
 
 ## Portal Web Embarcado e Provisionamento
 
-No boot, o gateway ativa o ponto de acesso local **`MODBUS RECEIVER <SERIAL_NUMBER>`** servindo uma interface web administrativa na porta **`80`** (`WebServerLocalSetup.h` e `WEBPAGES.h`).
+Para eliminar dependência de programação manual na instalação em campo, o gateway inicializa automaticamente o ponto de acesso **`MODBUS RECEIVER <SERIAL_NUMBER>`** e expõe uma interface web administrativa na porta **`80`** (`WebServerLocalSetup.h` e `WEBPAGES.h`).
 
 - **Fluxo de Primeiro Uso e Autenticação:** quando `primeiro_uso_global == 0`, o portal exige o cadastro da senha administrativa (armazenada em `EEPROM`). Nos acessos subsequentes, todas as telas de configuração são protegidas pela rota de login.
 - **Varredura Wi-Fi Assíncrona (FreeRTOS):** no ESP32, a rota `/update_wifi_list` executa `WiFi.scanNetworks()` em uma task dedicada (`xTaskCreatePinnedToCore` no Core 1), retornando os SSIDs via JSON em `/get_wifi_list` sem bloquear o loop de automação.
@@ -186,13 +229,16 @@ No boot, o gateway ativa o ponto de acesso local **`MODBUS RECEIVER <SERIAL_NUMB
 
 ### Motor de Atualização OTA (`buscarAtt()`)
 
-Ao receber o comando remoto **`70`**, o gateway:
-1. Confirma o recebimento da tarefa no servidor.
-2. Desabilita temporariamente o Task Watchdog (`esp_task_wdt_delete(NULL)` no ESP32) para evitar resets durante o download.
+Ao receber o comando remoto **`70`**, o gateway executa uma atualização segura em flash sem acesso físico à porta USB:
+
+1. Confirma o recebimento da tarefa no servidor de gestão.
+2. Desabilita temporariamente o Task Watchdog (`esp_task_wdt_delete(NULL)` no ESP32) para evitar resets durante o download da imagem.
 3. Baixa o binário via HTTP validando `Content-Length`, inicializa `Update.begin(length, U_FLASH)` e grava em streaming por blocos de **`512 bytes`** (`BUFFER_SIZE`).
 4. Finaliza com `Update.end()` e reinicia automaticamente executando o novo firmware.
 
 ### Console de Diagnóstico Serial (`115200 bps`)
+
+Durante bancada e comissionamento, o Monitor Serial aceita comandos rápidos de inspeção e teste manual:
 
 | Tecla | Ação Executada |
 | :---: | :--- |
@@ -207,7 +253,7 @@ Ao receber o comando remoto **`70`**, o gateway:
 
 ## Gabinete Mecânico 3D
 
-O repositório inclui o projeto mecânico completo do invólucro protetivo do gateway para impressão 3D e customização em painel industrial:
+O repositório inclui o projeto mecânico completo do invólucro protetivo do gateway para impressão 3D e adaptação a painéis elétricos industriais:
 
 | Arquivo | Formato | Descrição |
 | :--- | :---: | :--- |
